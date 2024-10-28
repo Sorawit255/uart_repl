@@ -23,8 +23,8 @@
 #define CONSOLE_UART_CHANNEL    (1 - DEFAULT_UART_CHANNEL)
 #define DEFAULT_UART_RX_PIN     (3)
 #define DEFAULT_UART_TX_PIN     (2)
-#define CONSOLE_UART_RX_PIN     (4)
-#define CONSOLE_UART_TX_PIN     (5)
+#define CONSOLE_UART_RX_PIN     (3) // ดูตามบอร์ดของตัวเอง
+#define CONSOLE_UART_TX_PIN     (1)
 
 #define UARTS_BAUD_RATE         (115200)
 #define TASK_STACK_SIZE         (2048)
@@ -97,6 +97,46 @@ static int console_test(int argc, char **argv)
     return 0;
 }
 
+static int led_control(int argc, char **argv)
+{
+    // arg ย่อมาจาก argument คือ parameter ที่ผู้เรียกส่งผ่านมาทางวงเล็บของฟังก์ชั่น
+    // int argc คือจำนวนของparameter
+    // char **argv arrav ของ parameter เป็น char* หรือ string
+    printf("number of argc = %d\n", argc);
+
+    printf("Parameters:\n");
+    for(int i = 0; i < argc; i++)
+    {
+        printf("No:%d, %s\n", i ,argv[i]);
+    }
+
+    int led_no = atoi(argv[1]); //แปลงพารามิเตอร์ ตัวที่2 (หมายเลย LED) เป็นตัวเลข
+    
+    printf("LED number = %d\n", led_no);
+
+    int led_status = 0;
+    if(strstr(argv[2],"on") !=NULL)
+    {
+        led_status = 1 ;
+        gpio_set_level(led_no,led_status);
+    }
+    if(strstr(argv[2],"off") !=NULL)
+    {
+        led_status = 0 ;
+        gpio_set_level(led_no,led_status);
+    }
+     if(strstr(argv[2],"enable") !=NULL)
+    {
+        led_status = 0 ;
+        gpio_set_direction(led_no,GPIO_MODE_OUTPUT);
+    }
+
+
+
+    printf("LED status = %d\n", led_status);
+    return 0;
+}
+
 /**
  * @brief Function executed in another task then main one (as the one main
  * executes REPL console).
@@ -153,11 +193,23 @@ void app_main(void)
     esp_console_repl_t *repl = NULL;
     esp_console_repl_config_t repl_config = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
     repl_config.prompt = "repl >";
+
+
+
     const esp_console_cmd_t cmd = {
         .command = "consoletest",
         .help = "Test console by sending a message",
         .func = &console_test,
     };
+
+     const esp_console_cmd_t led = {
+        .command = "led",
+        .help = "Control led on esp32 board\n Usage led <pinno> <on|off|enable>",
+        .func = &led_control ,  
+    };
+
+    // gpio_set_direction(GPIO_NUM_16, GPIO_MODE_OUTPUT);
+
     esp_console_dev_uart_config_t uart_config = {
         .channel = CONSOLE_UART_CHANNEL,
         .baud_rate = UARTS_BAUD_RATE,
@@ -174,6 +226,7 @@ void app_main(void)
     configure_uarts();
 
     ESP_ERROR_CHECK(esp_console_cmd_register(&cmd));
+    ESP_ERROR_CHECK(esp_console_cmd_register(&led));
 
     /* Create a task for sending and receiving commands to and from the second UART. */
     xTaskCreate(send_commands, "send_commands_task", TASK_STACK_SIZE, NULL, 10, NULL);
